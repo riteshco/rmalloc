@@ -74,17 +74,16 @@ void* rmalloc(int alloc_size) {
 }
 
 void rfree(void* ptr) {
-    Chunk* tmp = head;
-    while((void*)(tmp+1) != ptr) {
-        tmp = tmp->next;
-    }
-    tmp->occupied = false;
-    mergeChunkNext(tmp);
-    tmp = mergeChunkPrev(tmp);
-    if(tmp->next == nullptr) {
-        if(tmp->prev != nullptr) tmp->prev->next = nullptr;
+    if(ptr == nullptr) return;
+    Chunk* chunk = (Chunk*)ptr - 1;
+    
+    chunk->occupied = false;
+    mergeChunkNext(chunk);
+    chunk = mergeChunkPrev(chunk);
+    if(chunk->next == nullptr) {
+        if(chunk->prev != nullptr) chunk->prev->next = nullptr;
         else head = nullptr;
-        brk(tmp);
+        brk(chunk);
     }
 }
 
