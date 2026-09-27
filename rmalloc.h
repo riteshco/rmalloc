@@ -5,7 +5,6 @@ class Chunk {
     public:
         bool occupied;
         int chunklen;
-        void* addr;
         Chunk* next{nullptr};
         Chunk* prev{nullptr};
 };

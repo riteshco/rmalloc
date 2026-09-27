@@ -1,8 +1,6 @@
 #include <unistd.h>
 #include "rmalloc.h"
 
-#include <iostream>
-
 Chunk* head = nullptr;
 
 static Chunk* findFreeChunk(Chunk* head, int alloc_size) {
@@ -13,9 +11,8 @@ static Chunk* findFreeChunk(Chunk* head, int alloc_size) {
 }
 
 static void splitChunk(Chunk* chunk, unsigned int req_size) {
-    void* breakpoint = (char* )chunk->addr + req_size;
+    void* breakpoint = (char* )(chunk+1) + req_size;
     Chunk* newChunk = (Chunk*)breakpoint;
-    newChunk->addr = (char*)breakpoint+sizeof(Chunk);
     newChunk->chunklen = chunk->chunklen - req_size - sizeof(Chunk);
     chunk->chunklen = req_size;
     newChunk->next = chunk->next;
@@ -52,7 +49,6 @@ void* rmalloc(int alloc_size) {
     if(tmp == nullptr) {
         head = (Chunk*)sbrk(sizeof(Chunk));
         addr = sbrk(alloc_size);
-        head->addr = addr;
         head->chunklen = alloc_size;
         head->occupied = true;
         num_chunks++;
@@ -61,7 +57,6 @@ void* rmalloc(int alloc_size) {
         if(tmp->next == nullptr && (tmp->occupied == true || tmp->chunklen < alloc_size)) {
             Chunk* newchunk = (Chunk*)sbrk(sizeof(Chunk));
             addr = sbrk(alloc_size);
-            newchunk->addr = addr;
             newchunk->chunklen = alloc_size;
             newchunk->prev = tmp;
             newchunk->occupied = true;
@@ -71,7 +66,7 @@ void* rmalloc(int alloc_size) {
             if(tmp->chunklen > alloc_size + sizeof(Chunk)) {
                 splitChunk(tmp, alloc_size);
             }
-            addr = tmp->addr;
+            addr = (void*)(tmp+1);
             tmp->occupied = true;
         }
     }
@@ -80,7 +75,7 @@ void* rmalloc(int alloc_size) {
 
 void rfree(void* ptr) {
     Chunk* tmp = head;
-    while(tmp->addr != ptr) {
+    while((void*)(tmp+1) != ptr) {
         tmp = tmp->next;
     }
     tmp->occupied = false;
