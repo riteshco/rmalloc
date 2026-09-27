@@ -5,6 +5,7 @@ class Chunk {
     public:
         bool occupied;
         int chunklen;
+        void* addr;
         Chunk* next{nullptr};
         Chunk* prev{nullptr};
 
@@ -14,7 +15,9 @@ class Chunk {
 
         Chunk(bool b, int c): occupied(b), chunklen(c) {}
         
-        Chunk(bool b, int c, Chunk* prev) : occupied(b), chunklen(c), prev(prev) {}
+        Chunk(bool b, int c, void* addr) : occupied(b), chunklen(c), addr(addr) {}
+
+        Chunk(bool b, int c, void* addr, Chunk* prev) : occupied(b), chunklen(c), addr(addr), prev(prev) {}
 };
 
 void* rmalloc(int alloc_size);
