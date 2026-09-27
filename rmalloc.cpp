@@ -4,7 +4,47 @@
 #include <iostream>
 
 Chunk* head = nullptr;
-int num_chunks = 0;
+
+static Chunk* findFreeChunk(Chunk* head, int alloc_size) {
+    while(head->next != nullptr && (head->occupied == true || head->chunklen < alloc_size)) {
+        head = head->next;
+    }
+    return head;
+}
+
+static void splitChunk(Chunk* chunk, unsigned int req_size) {
+    void* breakpoint = (char* )chunk->addr + req_size;
+    Chunk* newChunk = (Chunk*)breakpoint;
+    newChunk->addr = (char*)breakpoint+sizeof(Chunk);
+    newChunk->chunklen = chunk->chunklen - req_size - sizeof(Chunk);
+    chunk->chunklen = req_size;
+    newChunk->next = chunk->next;
+    if(newChunk->next) newChunk->next->prev = newChunk;
+    chunk->next = newChunk;
+    newChunk->prev = chunk;
+    newChunk->occupied = false;
+    num_chunks++;
+}
+
+static void mergeChunkNext(Chunk* chunk) {
+    if(chunk->next != nullptr && chunk->next->occupied == false) {
+        chunk->chunklen += sizeof(Chunk) + chunk->next->chunklen;
+        if(chunk->next->next) chunk->next->next->prev = chunk;
+        chunk->next = chunk->next->next;
+        num_chunks--;
+    }
+}
+
+static Chunk* mergeChunkPrev(Chunk* chunk) {
+    if(chunk->prev != nullptr && chunk->prev->occupied == false) {
+        chunk->prev->chunklen += sizeof(Chunk) + chunk->chunklen;
+        chunk->prev->next = chunk->next;
+        if(chunk->next) chunk->next->prev = chunk->prev;
+        chunk = chunk->prev;
+        num_chunks--;
+    }
+    return chunk;
+}
 
 void* rmalloc(int alloc_size) {
     void* addr = nullptr;
@@ -17,10 +57,8 @@ void* rmalloc(int alloc_size) {
         head->occupied = true;
         num_chunks++;
     } else {
-        while(tmp->next != nullptr && (tmp->occupied == true || tmp->chunklen < alloc_size)) {
-            tmp = tmp->next;
-        }
-        if(tmp->next == nullptr) {
+        tmp = findFreeChunk(tmp, alloc_size);
+        if(tmp->next == nullptr && (tmp->occupied == true || tmp->chunklen < alloc_size)) {
             Chunk* newchunk = (Chunk*)sbrk(sizeof(Chunk));
             addr = sbrk(alloc_size);
             newchunk->addr = addr;
@@ -30,6 +68,9 @@ void* rmalloc(int alloc_size) {
             tmp->next = newchunk;
             num_chunks++;
         } else {
+            if(tmp->chunklen > alloc_size + sizeof(Chunk)) {
+                splitChunk(tmp, alloc_size);
+            }
             addr = tmp->addr;
             tmp->occupied = true;
         }
@@ -43,49 +84,12 @@ void rfree(void* ptr) {
         tmp = tmp->next;
     }
     tmp->occupied = false;
+    mergeChunkNext(tmp);
+    tmp = mergeChunkPrev(tmp);
     if(tmp->next == nullptr) {
+        if(tmp->prev != nullptr) tmp->prev->next = nullptr;
+        else head = nullptr;
         brk(tmp);
     }
-}
-
-// Testing section below
-
-// #include <ostream>
-
-// std::ostream& operator<<(std::ostream& out, Chunk& c) {
-//     out << "Chunk ->\n";
-//     out << std::boolalpha;
-//     out << "occupied = " << c.occupied << std::endl;
-//     out << "chunklen = " << c.chunklen << std::endl;
-//     return out;
-// }
-
-int main() {
-    // Chunk c{false, 2};
-    // std::cout << c;
-
-    void* mem = rmalloc(sizeof(int));
-    void* mem2 = rmalloc(4*sizeof(int));
-    void* mem3 = rmalloc(sizeof(int));
-    void* mem4 = rmalloc(sizeof(int));
-    void* mem5 = rmalloc(sizeof(int));
-    void* mem6 = rmalloc(sizeof(int));
-    std::cout << mem << std::endl;
-    std::cout << mem2 << std::endl;
-    std::cout << mem3 << std::endl;
-    std::cout << mem4 << std::endl;
-    std::cout << mem5 << std::endl;
-    std::cout << mem6 << std::endl;
-    std::cout << num_chunks << std::endl;
-
-
-    rfree(mem);
-    rfree(mem2);
-    rfree(mem4);
-    rfree(mem5);
-    rfree(mem3);
-    rfree(mem6);
-    
-    return 0;
 }
 
